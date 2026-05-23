@@ -21,6 +21,8 @@ import tasksRouter from './modules/tasks/routes.js';
 import milestonesRouter from './modules/milestones/routes.js';
 import analyticsRouter from './modules/analytics/routes.js';
 import notificationsRouter from './modules/notifications/routes.js';
+import messagesRouter from './modules/messages/routes.js';
+import auditRouter from './modules/audit/routes.js';
 
 /**
  * SRC DIRECTORY - EXPRESS APPLICATION INITIALIZER (app.js)
@@ -99,6 +101,12 @@ app.use('/api/analytics', analyticsRouter);
 
 // Mount Notifications dispatcher, background queues, and read states tracking
 app.use('/api/notifications', notificationsRouter);
+
+// Mount Real-time Messaging direct messages, projects chats, and task discussions workflows
+app.use('/api/messages', messagesRouter);
+
+// Mount Security Audit logging compliance monitoring workspaces
+app.use('/api/audit', auditRouter);
 
 /**
  * @route   GET /health

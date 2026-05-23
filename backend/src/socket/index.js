@@ -30,6 +30,9 @@ export const initSocket = (httpServer) => {
     pingTimeout: 60000, // safety timeouts
   });
 
+  // Bind to global variable to make it accessible across service decorators
+  global.socketIoServer = io;
+
   // ==========================================
   // 1. Socket Authentication Middleware
   // ==========================================
@@ -96,6 +99,46 @@ export const initSocket = (httpServer) => {
     // D. Echo / Ping tests supporting real-time diagnostics
     socket.on('diagnostics:ping', (data) => {
       socket.emit('diagnostics:pong', { timestamp: new Date(), ...data });
+    });
+
+    // F. Enterprise Messaging Dynamic Room Joins
+    socket.on('chat:room:join', (roomName) => {
+      socket.join(roomName);
+      logger.debug(`Socket Chat Room: User [${socket.user.name}] joined room: [${roomName}]`);
+    });
+
+    socket.on('chat:room:leave', (roomName) => {
+      socket.leave(roomName);
+      logger.debug(`Socket Chat Room: User [${socket.user.name}] left room: [${roomName}]`);
+    });
+
+    // G. Typing Indicator signals
+    socket.on('chat:typing:start', ({ roomName, recipientId }) => {
+      const payload = {
+        userId,
+        userName: socket.user.name,
+        roomName,
+      };
+
+      if (roomName) {
+        socket.to(roomName).emit('chat:typing:start', payload);
+      } else if (recipientId) {
+        emitToUser(recipientId, 'chat:typing:start', payload);
+      }
+    });
+
+    socket.on('chat:typing:stop', ({ roomName, recipientId }) => {
+      const payload = {
+        userId,
+        userName: socket.user.name,
+        roomName,
+      };
+
+      if (roomName) {
+        socket.to(roomName).emit('chat:typing:stop', payload);
+      } else if (recipientId) {
+        emitToUser(recipientId, 'chat:typing:stop', payload);
+      }
     });
 
     // E. Connection Cleanups on Disconnect

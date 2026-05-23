@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  # ----------------------------------------------------
+  # Redis Caching Service
+  # ----------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: taskflow-redis-production
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - taskflow-production-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------
+  # MongoDB Database Service
+  # ----------------------------------------------------
+  mongodb:
+    image: mongo:6.0
+    container_name: taskflow-mongodb-production
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - taskflow-production-network
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --eval 'db.runCommand({ping:1})' --quiet"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------
+  # Express SaaS Backend Service
+  # ----------------------------------------------------
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: taskflow-backend-production
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - MONGO_URI=mongodb://mongodb:27017/taskflow
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=ProductionSuperSecretJWTKey102938!
+      - JWT_REFRESH_SECRET=ProductionSuperSecretJWTRefreshKey987654!
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - taskflow-production-network
+    volumes:
+      - backend_uploads:/usr/src/app/public/uploads
+
+# ----------------------------------------------------
+# Shared Volumes & Networks Configurations
+# ----------------------------------------------------
+volumes:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+  backend_uploads:
+    driver: local
+
+networks:
+  taskflow-production-network:
+    driver: bridge

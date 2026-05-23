@@ -28,6 +28,7 @@ import uploadsRouter from './modules/uploads/routes.js';
 import reportsRouter from './modules/reports/routes.js';
 import aiRouter from './modules/ai/routes.js';
 import queuesRouter from './modules/queues/routes.js';
+import healthRouter from './modules/health/routes.js';
 
 /**
  * SRC DIRECTORY - EXPRESS APPLICATION INITIALIZER (app.js)
@@ -124,6 +125,9 @@ app.use('/api/ai', aiRouter);
 
 // Mount Redis-backed queues and failed jobs administrative consoles
 app.use('/api/queues', queuesRouter);
+
+// Mount Public Health Probe diagnostics console (Kubernetes / AWS ALB accessible)
+app.use('/api/health', healthRouter);
 
 // Expose public uploads folder for local simulated object storage access
 app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));

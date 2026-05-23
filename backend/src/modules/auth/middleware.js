@@ -3,6 +3,7 @@ import authRepository from './repository.js';
 import config from '../../config/index.js';
 import AppError from '../../utils/AppError.js';
 import asyncHandler from '../../utils/asyncHandler.js';
+import cacheManager from '../../utils/cache.js';
 
 /**
  * AUTH MODULE - SECURITY GUARD MIDDLEWARES (middleware.js)
@@ -37,10 +38,17 @@ export const protect = asyncHandler(async (req, res, next) => {
     throw new AppError('Invalid authentication token signature.', 401);
   }
 
-  // 3. Ensure Token Owner still exists
-  const currentUser = await authRepository.findUserById(decoded.id);
+  // 3. Ensure Token Owner still exists (Optimized with Session Caching)
+  const cacheKey = `session:user:${decoded.id}`;
+  let currentUser = await cacheManager.get(cacheKey);
+
   if (!currentUser) {
-    throw new AppError('The user associated with this credentials no longer exists.', 401);
+    currentUser = await authRepository.findUserById(decoded.id);
+    if (!currentUser) {
+      throw new AppError('The user associated with this credentials no longer exists.', 401);
+    }
+    // Store user telemetry in session cache for 15 minutes
+    await cacheManager.set(cacheKey, currentUser, 900);
   }
 
   // 4. Ensure Token Owner is Active

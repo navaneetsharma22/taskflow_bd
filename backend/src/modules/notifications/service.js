@@ -2,6 +2,7 @@ import notificationRepository from './repository.js';
 import { emitToUser } from '../../socket/index.js';
 import logger from '../../utils/logger.js';
 import AppError from '../../utils/AppError.js';
+import cacheManager from '../../utils/cache.js';
 
 /**
  * NOTIFICATION MODULE - SERVICE LAYER & WORKER QUEUE (service.js)
@@ -97,6 +98,10 @@ class NotificationService {
     // 2. Persist notification to DB (Required for In-App list retrieval)
     const notification = await notificationRepository.create(notificationData);
 
+    // Invalidate cached unread notifications count
+    const cacheKey = `tenant:${organizationId}:user:${recipientId}:notifications:unread`;
+    await cacheManager.del(cacheKey);
+
     // 3. Process Multi-channel delivery targets parallelly
     const deliveryPromises = [];
 
@@ -191,6 +196,11 @@ class NotificationService {
     if (!notification) {
       throw new AppError('Notification not found.', 404);
     }
+    
+    // Invalidate cached unread count
+    const cacheKey = `tenant:${organizationId}:user:${recipientId}:notifications:unread`;
+    await cacheManager.del(cacheKey);
+
     return notification;
   }
 
@@ -199,6 +209,11 @@ class NotificationService {
    */
   async markAllAsRead(recipientId, organizationId) {
     await notificationRepository.markAllAsRead(recipientId, organizationId);
+
+    // Invalidate cached unread count
+    const cacheKey = `tenant:${organizationId}:user:${recipientId}:notifications:unread`;
+    await cacheManager.del(cacheKey);
+
     logger.info(`Notification: Marked all notifications as read for User ID: ${recipientId}`);
   }
 
@@ -206,7 +221,16 @@ class NotificationService {
    * Gets unread notification count
    */
   async getUnreadCount(recipientId, organizationId) {
-    return notificationRepository.countUnread(recipientId, organizationId);
+    const cacheKey = `tenant:${organizationId}:user:${recipientId}:notifications:unread`;
+    let count = await cacheManager.get(cacheKey);
+
+    if (count === null || count === undefined) {
+      count = await notificationRepository.countUnread(recipientId, organizationId);
+      // Cache unread count for 1 minute
+      await cacheManager.set(cacheKey, count, 60);
+    }
+
+    return count;
   }
 }
 

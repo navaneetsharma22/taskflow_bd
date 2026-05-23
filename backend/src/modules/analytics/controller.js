@@ -1,6 +1,7 @@
 import analyticsService from './service.js';
 import asyncHandler from '../../utils/asyncHandler.js';
 import { successResponse } from '../../utils/responseHelper.js';
+import cacheManager from '../../utils/cache.js';
 
 /**
  * ANALYTICS MODULE - BOUNDARY CONTROLLERS (controller.js)
@@ -65,6 +66,14 @@ export const getSprintVelocity = asyncHandler(async (req, res) => {
  * @access  Private (Requires VIEW_ANALYTICS permission)
  */
 export const getKpiDashboard = asyncHandler(async (req, res) => {
-  const kpis = await analyticsService.getKpiDashboard(req.organizationId);
+  const cacheKey = `tenant:${req.organizationId}:dashboard:kpis`;
+  let kpis = await cacheManager.get(cacheKey);
+
+  if (!kpis) {
+    kpis = await analyticsService.getKpiDashboard(req.organizationId);
+    // Cache Executive KPI Dashboard for 5 minutes
+    await cacheManager.set(cacheKey, kpis, 300);
+  }
+
   return successResponse(res, 'Executive KPI dashboard telemetry calculated successfully.', kpis);
 });

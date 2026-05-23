@@ -3,6 +3,7 @@ import organizationService from '../organizations/service.js';
 import authRepository from '../auth/repository.js';
 import AppError from '../../utils/AppError.js';
 import logger from '../../utils/logger.js';
+import cacheManager from '../../utils/cache.js';
 
 /**
  * USERS MODULE - SERVICE LAYER (service.js)
@@ -117,6 +118,9 @@ class UserService {
       throw new AppError('User profile not found or workspace boundary mismatch.', 404);
     }
 
+    // Invalidate cached session user telemetry
+    await cacheManager.del(`session:user:${id}`);
+
     logger.info(`User: Updated user profile details for ID: ${id}`);
     return updatedUser;
   }
@@ -133,6 +137,9 @@ class UserService {
     // SECURITY BEST PRACTICE: Revoke all active login sessions for disabled user immediately
     await authRepository.invalidateAllUserSessions(id);
 
+    // Invalidate cached session user telemetry
+    await cacheManager.del(`session:user:${id}`);
+
     logger.warn(`User: Account Suspended and sessions invalidated for User ID: ${id} in Org ID: ${organizationId}`);
     return disabledUser;
   }
@@ -145,6 +152,9 @@ class UserService {
     if (!enabledUser) {
       throw new AppError('User profile not found or workspace boundary mismatch.', 404);
     }
+
+    // Invalidate cached session user telemetry
+    await cacheManager.del(`session:user:${id}`);
 
     logger.info(`User: Account reactivated for User ID: ${id}`);
     return enabledUser;

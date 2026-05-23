@@ -43,11 +43,19 @@ export const protect = asyncHandler(async (req, res, next) => {
   let currentUser = await cacheManager.get(cacheKey);
 
   if (!currentUser) {
-    currentUser = await authRepository.findUserById(decoded.id);
-    if (!currentUser) {
+    const dbUser = await authRepository.findUserById(decoded.id);
+    if (!dbUser) {
       throw new AppError('The user associated with this credentials no longer exists.', 401);
     }
-    // Store user telemetry in session cache for 15 minutes
+    // Cache ONLY a sanitized plain object — never the full Mongoose document
+    currentUser = {
+      _id: dbUser._id.toString(),
+      name: dbUser.name,
+      email: dbUser.email,
+      role: dbUser.role,
+      status: dbUser.status,
+      organizationId: dbUser.organizationId.toString(),
+    };
     await cacheManager.set(cacheKey, currentUser, 900);
   }
 
@@ -63,7 +71,7 @@ export const protect = asyncHandler(async (req, res, next) => {
     email: currentUser.email,
     role: currentUser.role,
   };
-  req.organizationId = currentUser.organizationId.toString();
+  req.organizationId = currentUser.organizationId;
 
   next();
 });

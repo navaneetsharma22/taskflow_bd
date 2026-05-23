@@ -1,6 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import logger from '../../utils/logger.js';
-import config from '../../config/index.js';
 
 /**
  * AI SERVICE MODULE - PROVIDER ABSTRACTION LAYER (abstraction.js)
@@ -10,6 +9,7 @@ import config from '../../config/index.js';
  */
 class AiAbstractionLayer {
   constructor() {
+    // API key sourced through environment (validated externally via config/env.js if required)
     this.apiKey = process.env.GEMINI_API_KEY || process.env.AI_API_KEY || null;
     this.geminiClient = null;
 

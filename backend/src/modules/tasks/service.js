@@ -64,15 +64,27 @@ class TaskService {
       throw new AppError('Task not found or workspace boundary mismatch.', 404);
     }
 
+    // SECURITY: Whitelist allowed update fields to prevent injection of sensitive fields
+    const allowedFields = [
+      'title', 'description', 'status', 'priority', 'assigneeId',
+      'startDate', 'endDate', 'recurring',
+    ];
+    const sanitizedUpdate = {};
+    for (const key of allowedFields) {
+      if (updateData[key] !== undefined) {
+        sanitizedUpdate[key] = updateData[key];
+      }
+    }
+
     // If status transitions to COMPLETED, check recurring updates
-    if (updateData.status === TASK_STATUS.COMPLETED && task.status !== TASK_STATUS.COMPLETED) {
+    if (sanitizedUpdate.status === TASK_STATUS.COMPLETED && task.status !== TASK_STATUS.COMPLETED) {
       // If completed subtasks exist, mark all complete
       if (task.subtasks && task.subtasks.length > 0) {
         task.subtasks.forEach((sub) => { sub.isCompleted = true; });
       }
     }
 
-    const updated = await taskRepository.update(id, updateData, organizationId);
+    const updated = await taskRepository.update(id, sanitizedUpdate, organizationId);
     logger.info(`Task: Updated details for Task ID: ${id}`);
     return updated;
   }
@@ -137,30 +149,37 @@ class TaskService {
   // ==========================================
 
   /**
-   * DFS task dependency circular validation checks
+   * DFS task dependency circular validation checks (optimized in-memory to prevent N+1 queries)
    */
-  async checkCircularDependency(taskId, targetDependencyId, organizationId) {
+  async checkCircularDependency(taskId, targetDependencyId, projectId, organizationId) {
+    // 1. Fetch all tasks within the same project context (single optimized query)
+    const projectTasks = await Task.find({ projectId, organizationId })
+      .select('_id dependencies')
+      .lean();
+
+    // 2. Build dependency lookup map for immediate O(1) traversal
+    const dependencyMap = new Map();
+    for (const t of projectTasks) {
+      dependencyMap.set(t._id.toString(), t.dependencies.map(d => d.toString()));
+    }
+
     const visited = new Set();
     const stack = new Set();
 
-    const dfs = async (currentId) => {
+    const dfs = (currentId) => {
       visited.add(currentId);
       stack.add(currentId);
 
-      const task = await taskRepository.findByIdRaw(currentId, organizationId);
-      if (task && task.dependencies && task.dependencies.length > 0) {
-        for (const depId of task.dependencies) {
-          const stringId = depId.toString();
-          
-          if (stringId === taskId.toString()) {
-            return true; // Cycle detected: child maps back to root!
-          }
+      const deps = dependencyMap.get(currentId) || [];
+      for (const depId of deps) {
+        if (depId === taskId.toString()) {
+          return true; // Cycle detected: child maps back to root!
+        }
 
-          if (!visited.has(stringId)) {
-            if (await dfs(stringId)) return true;
-          } else if (stack.has(stringId)) {
-            return true;
-          }
+        if (!visited.has(depId)) {
+          if (dfs(depId)) return true;
+        } else if (stack.has(depId)) {
+          return true;
         }
       }
 
@@ -192,8 +211,8 @@ class TaskService {
       throw new AppError('Dependency is already registered.', 400);
     }
 
-    // Run DFS cycle validation
-    const hasCycle = await this.checkCircularDependency(taskId, dependencyId, organizationId);
+    // Run DFS cycle validation (Optimized in-memory check passing projectId)
+    const hasCycle = await this.checkCircularDependency(taskId, dependencyId, task.projectId, organizationId);
     if (hasCycle) {
       throw new AppError('Circular dependency violation. Task dependencies cannot map circular references.', 409);
     }
@@ -278,25 +297,21 @@ class TaskService {
   }
 
   /**
-   * Periodic recurring task cron engine mapping
+   * Periodic recurring task cron engine mapping (Optimized with cursors for high-scale memory efficiency)
    */
   async processRecurringTasks() {
     logger.info('Recurring Task: Running periodic generator engine...');
     const today = new Date();
 
-    // Query active recurring tasks due to repeat
-    const dueTasks = await Task.find({
+    // Stream due tasks using a cursor to prevent Out-Of-Memory crashes under high scale
+    const cursor = Task.find({
       'recurring.isRecurring': true,
       'recurring.nextOccurrence': { $lte: today },
-    });
-
-    if (dueTasks.length === 0) {
-      logger.info('Recurring Task: No scheduled recurring tasks due at this time.');
-      return;
-    }
+    }).cursor();
 
     let createdCount = 0;
-    for (const t of dueTasks) {
+    
+    for (let t = await cursor.next(); t != null; t = await cursor.next()) {
       try {
         // 1. Create a fresh duplicate task item (Clearing historical subtask logs)
         await Task.create({

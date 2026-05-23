@@ -201,38 +201,63 @@ class AnalyticsService {
     const warningThreshold = new Date();
     warningThreshold.setDate(warningThreshold.getDate() + 2); // 48 Hours
 
-    // Fetch incomplete tasks violating deadlines
+    // Fetch count metrics first (extremely fast and light)
+    const [totalOverdueTasks, totalApproachingTasks, totalRiskyProjects] = await Promise.all([
+      Task.countDocuments({
+        organizationId: orgId,
+        status: { $ne: TASK_STATUS.COMPLETED },
+        endDate: { $lt: today },
+      }),
+      Task.countDocuments({
+        organizationId: orgId,
+        status: { $ne: TASK_STATUS.COMPLETED },
+        endDate: { $gte: today, $lte: warningThreshold },
+      }),
+      Project.countDocuments({
+        organizationId: orgId,
+        healthScore: { $lt: 80 },
+      })
+    ]);
+
+    // Fetch incomplete tasks violating deadlines - limited to top 50 most urgent
     const overdueTasks = await Task.find({
       organizationId: orgId,
       status: { $ne: TASK_STATUS.COMPLETED },
       endDate: { $lt: today },
     })
+      .sort({ endDate: 1 })
+      .limit(50)
       .populate('projectId', 'name code')
       .populate('assigneeId', 'name email')
       .lean();
 
-    // Fetch incomplete tasks approaching deadlines (next 48h)
+    // Fetch incomplete tasks approaching deadlines (next 48h) - limited to top 50 most urgent
     const approachingTasks = await Task.find({
       organizationId: orgId,
       status: { $ne: TASK_STATUS.COMPLETED },
       endDate: { $gte: today, $lte: warningThreshold },
     })
+      .sort({ endDate: 1 })
+      .limit(50)
       .populate('projectId', 'name code')
       .populate('assigneeId', 'name email')
       .lean();
 
-    // Compile list of projects with low health levels
+    // Compile list of projects with low health levels - limited to top 50 most critical
     const riskyProjects = await Project.find({
       organizationId: orgId,
       healthScore: { $lt: 80 },
-    }).lean();
+    })
+      .sort({ healthScore: 1 })
+      .limit(50)
+      .lean();
 
     return {
-      riskLevel: overdueTasks.length > 5 ? 'HIGH' : overdueTasks.length > 0 ? 'MEDIUM' : 'LOW',
+      riskLevel: totalOverdueTasks > 5 ? 'HIGH' : totalOverdueTasks > 0 ? 'MEDIUM' : 'LOW',
       metrics: {
-        totalOverdueTasks: overdueTasks.length,
-        totalApproachingTasks: approachingTasks.length,
-        totalRiskyProjects: riskyProjects.length,
+        totalOverdueTasks,
+        totalApproachingTasks,
+        totalRiskyProjects,
       },
       details: {
         overdue: overdueTasks.map((t) => ({

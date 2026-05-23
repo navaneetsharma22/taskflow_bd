@@ -4,6 +4,8 @@ import { connectDatabase, disconnectDatabase } from './database/index.js';
 import rbacService from './modules/rbac/service.js';
 import logger from './utils/logger.js';
 import { initSocket } from './socket/index.js';
+import cacheManager from './utils/cache.js';
+import queueSystemManager from './queues/manager.js';
 
 /**
  * SRC DIRECTORY - SERVER STARTUP & ENTRY POINT (server.js)
@@ -59,10 +61,16 @@ process.on('unhandledRejection', (err) => {
   logger.error(err.stack || err.message);
 
   if (server) {
-    server.close(() => {
-      disconnectDatabase().then(() => {
+    server.close(async () => {
+      try {
+        await disconnectDatabase();
+        await cacheManager.close();
+        await queueSystemManager.close();
+      } catch (shutdownErr) {
+        logger.error(`CRITICAL: Error during unhandled promise rejection shutdown: ${shutdownErr.message}`);
+      } finally {
         process.exit(1);
-      });
+      }
     });
   } else {
     process.exit(1);
@@ -77,10 +85,22 @@ const handleGracefulShutdown = (signal) => {
 
   if (server) {
     server.close(async () => {
-      logger.info('HTTP: Outgoing requests processed. Closing database connection...');
-      await disconnectDatabase();
-      logger.info('SYSTEM: Graceful shutdown cycle complete. Bye!');
-      process.exit(0);
+      try {
+        logger.info('HTTP: Outgoing requests processed. Closing database connection...');
+        await disconnectDatabase();
+        
+        logger.info('SYSTEM: Closing Redis cache manager connection...');
+        await cacheManager.close();
+
+        logger.info('SYSTEM: Closing BullMQ queue connections...');
+        await queueSystemManager.close();
+
+        logger.info('SYSTEM: Graceful shutdown cycle complete. Bye!');
+        process.exit(0);
+      } catch (err) {
+        logger.error(`CRITICAL: Error during graceful shutdown execution: ${err.message}`);
+        process.exit(1);
+      }
     });
 
     // Forcefully shut down if processes hang past safety threshold

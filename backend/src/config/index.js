@@ -13,7 +13,7 @@ const config = {
   db: {
     uri: env.mongo.uri,
     options: {
-      autoIndex: true, // Auto build indexes in Mongoose
+      autoIndex: env.nodeEnv === 'development', // Only auto-build indexes in dev; disable in prod for performance
     },
   },
   redis: {

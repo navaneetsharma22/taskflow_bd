@@ -1,5 +1,6 @@
 import express from 'express';
 import validate from '../../validators/validate.js';
+import { authRateLimiter } from '../../middleware/rateLimiter.js';
 import * as authController from './controller.js';
 import { protect } from './middleware.js';
 import { successResponse } from '../../utils/responseHelper.js';
@@ -23,15 +24,15 @@ const router = express.Router();
 // 1. Workspace Validation Entry
 router.post('/validate-org', validate(validateOrgCode), authController.validateOrganizationWorkspace);
 
-// 2. User Credentials Lifecycle
-router.post('/register', validate(validateRegister), authController.registerUser);
-router.post('/login', validate(validateLogin), authController.loginUser);
+// 2. User Credentials Lifecycle (Auth-specific rate limiting applied)
+router.post('/register', authRateLimiter, validate(validateRegister), authController.registerUser);
+router.post('/login', authRateLimiter, validate(validateLogin), authController.loginUser);
 router.post('/refresh', validate(validateRefreshToken), authController.refreshSessionToken);
 router.post('/logout', validate(validateRefreshToken), authController.logoutUser);
 
-// 3. Credentials Recovery Workflows
-router.post('/forgot-password', validate(validateForgotPassword), authController.forgotUserPassword);
-router.post('/reset-password', validate(validateResetPassword), authController.resetUserPassword);
+// 3. Credentials Recovery Workflows (Auth-specific rate limiting applied)
+router.post('/forgot-password', authRateLimiter, validate(validateForgotPassword), authController.forgotUserPassword);
+router.post('/reset-password', authRateLimiter, validate(validateResetPassword), authController.resetUserPassword);
 
 // 4. Verification Check (Protected telemetry me endpoint)
 router.get('/me', protect, (req, res) => {

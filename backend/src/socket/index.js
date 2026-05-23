@@ -24,14 +24,12 @@ const activeConnections = new Map();
 export const initSocket = (httpServer) => {
   io = new Server(httpServer, {
     cors: {
-      origin: '*', // Dynamic configurations supported
+      origin: config.cors.origins, // SECURITY: Restricted to configured origins only
+      credentials: true,
       methods: ['GET', 'POST'],
     },
     pingTimeout: 60000, // safety timeouts
   });
-
-  // Bind to global variable to make it accessible across service decorators
-  global.socketIoServer = io;
 
   // ==========================================
   // 1. Socket Authentication Middleware
@@ -101,8 +99,14 @@ export const initSocket = (httpServer) => {
       socket.emit('diagnostics:pong', { timestamp: new Date(), ...data });
     });
 
-    // F. Enterprise Messaging Dynamic Room Joins
+    // F. Enterprise Messaging Dynamic Room Joins (with tenant authorization)
     socket.on('chat:room:join', (roomName) => {
+      // SECURITY: Validate the room belongs to the user's tenant organization
+      if (typeof roomName !== 'string' || !roomName.includes(orgId)) {
+        logger.warn(`Socket Security: User [${socket.user.name}] attempted to join unauthorized room: [${roomName}]`);
+        socket.emit('error', { message: 'Access denied. You cannot join rooms outside your organization.' });
+        return;
+      }
       socket.join(roomName);
       logger.debug(`Socket Chat Room: User [${socket.user.name}] joined room: [${roomName}]`);
     });
@@ -194,3 +198,4 @@ export const emitToUser = (userId, eventName, payload) => {
 export const getActiveConnectionsCount = () => {
   return activeConnections.size;
 };
+

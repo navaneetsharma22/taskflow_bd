@@ -1,5 +1,4 @@
 import Joi from 'joi';
-import { ROLES } from '../../constants/index.js';
 
 /**
  * AUTH MODULE - PAYLOAD SCHEMA VALIDATORS (validator.js)
@@ -26,14 +25,20 @@ export const validateRegister = {
       'any.required': 'Email is required.',
       'string.email': 'Please supply a valid email format.',
     }),
-    password: Joi.string().required().min(8).max(100).messages({
-      'any.required': 'Password is required.',
-      'string.min': 'Password must be at least 8 characters long.',
-    }),
+    password: Joi.string().required().min(8).max(100)
+      .pattern(/[A-Z]/, 'uppercase')
+      .pattern(/[a-z]/, 'lowercase')
+      .pattern(/[0-9]/, 'digit')
+      .pattern(/[!@#$%^&*(),.?":{}|<>]/, 'special character')
+      .messages({
+        'any.required': 'Password is required.',
+        'string.min': 'Password must be at least 8 characters long.',
+        'string.pattern.name': 'Password must contain at least one {#name}.',
+      }),
     organizationCode: Joi.string().required().trim().uppercase().messages({
       'any.required': 'Organization code is required to register inside a workspace.',
     }),
-    role: Joi.string().valid(...Object.values(ROLES)).optional(),
+    // SECURITY: role is NOT accepted from client — always defaults to DEVELOPER server-side
   }),
 };
 
@@ -66,10 +71,16 @@ export const validateResetPassword = {
     token: Joi.string().required().messages({
       'any.required': 'Reset token is required.',
     }),
-    password: Joi.string().required().min(8).messages({
-      'any.required': 'New password is required.',
-      'string.min': 'New password must be at least 8 characters long.',
-    }),
+    password: Joi.string().required().min(8).max(100)
+      .pattern(/[A-Z]/, 'uppercase')
+      .pattern(/[a-z]/, 'lowercase')
+      .pattern(/[0-9]/, 'digit')
+      .pattern(/[!@#$%^&*(),.?":{}|<>]/, 'special character')
+      .messages({
+        'any.required': 'New password is required.',
+        'string.min': 'New password must be at least 8 characters long.',
+        'string.pattern.name': 'Password must contain at least one {#name}.',
+      }),
   }),
 };
 

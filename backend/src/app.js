@@ -2,7 +2,6 @@ import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import compression from 'compression';
-import mongoose from 'mongoose';
 import path from 'path';
 
 import config from './config/index.js';
@@ -131,39 +130,6 @@ app.use('/api/health', healthRouter);
 
 // Expose public uploads folder for local simulated object storage access
 app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
-
-/**
- * @route   GET /health
- * @desc    Provides system health and telemetry (database, memory, uptime)
- * @access  Public
- */
-app.get('/health', (req, res) => {
-  const dbStatus = mongoose.connection.readyState;
-  const statusLabels = {
-    0: 'disconnected',
-    1: 'connected',
-    2: 'connecting',
-    3: 'disconnecting',
-  };
-
-  const healthInfo = {
-    status: dbStatus === 1 ? 'healthy' : 'degraded',
-    timestamp: new Date().toISOString(),
-    uptime: `${Math.floor(process.uptime())}s`,
-    database: {
-      status: statusLabels[dbStatus] || 'unknown',
-      latency: dbStatus === 1 ? 'ok' : 'n/a',
-    },
-    system: {
-      memoryUsage: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB`,
-      platform: process.platform,
-      nodeVersion: process.version,
-    },
-  };
-
-  const code = healthInfo.status === 'healthy' ? 200 : 503;
-  res.status(code).json(healthInfo);
-});
 
 // ==========================================
 // 3. Fallbacks and Global Error Pipeline

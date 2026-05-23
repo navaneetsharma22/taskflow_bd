@@ -3,75 +3,52 @@ import { emitToUser } from '../../socket/index.js';
 import logger from '../../utils/logger.js';
 import AppError from '../../utils/AppError.js';
 import cacheManager from '../../utils/cache.js';
+import queueSystemManager from '../../queues/manager.js';
 
 /**
  * NOTIFICATION MODULE - SERVICE LAYER & WORKER QUEUE (service.js)
  * Responsibility: Implements asynchronous background queuing and multi-channel
  * notification delivery:
  *   1. Dispatcher: Registers a job in our non-blocking worker queue.
- *   2. In-Memory Asynchronous Worker Queue: Avoids locking HTTP threads.
+ *   2. BullMQ Redis Worker Queue: Avoids locking HTTP threads, prevents job loss.
  *   3. Email Channel: SMTP mock dispatcher.
  *   4. Push Channel: WebPush/FCM mock dispatcher.
  *   5. In-App Channel: Saves to DB and emits a real-time WebSockets event.
  *   6. Read/Unread State controls.
  */
 
-// Global In-Memory Notification Queue buffer
-const notificationQueue = [];
-let isWorkerRunning = false;
-
 class NotificationService {
+  constructor() {
+    // SECURITY/INFRASTRUCTURE: Register isolated background queue with robust BullMQ/Redis manager
+    queueSystemManager.registerQueue('notifications', async (jobData) => {
+      await this.processJob(jobData);
+    });
+  }
 
   /**
    * Pushes a notification request into the background processing queue.
    * Returns immediately (non-blocking) to optimize API speeds.
    */
   dispatchNotification(recipientId, organizationId, title, message, channels = ['IN_APP'], type = 'INFO') {
-    const job = {
+    const jobData = {
       recipientId: recipientId.toString(),
       organizationId: organizationId.toString(),
       title,
       message,
       channels,
       type,
-      retryCount: 0,
       timestamp: new Date(),
     };
 
-    notificationQueue.push(job);
-    logger.info(`Notification Queue: Enqueued job [Title: ${title}] for Recipient: ${recipientId}. Queue size: ${notificationQueue.length}`);
-
-    // Trigger queue worker loop asynchronously
-    this.startWorker();
-  }
-
-  /**
-   * Non-blocking Queue Worker Loop
-   */
-  async startWorker() {
-    if (isWorkerRunning) return;
-    isWorkerRunning = true;
-
-    // Process all pending notification jobs in the buffer
-    while (notificationQueue.length > 0) {
-      const job = notificationQueue.shift();
-      try {
-        await this.processJob(job);
-      } catch (err) {
-        logger.error(`Notification Worker: Failed to process job [Title: ${job.title}]. Error: ${err.message}`);
-        
-        // Exponential Retry strategy (Max 3 attempts)
-        if (job.retryCount < 3) {
-          job.retryCount += 1;
-          notificationQueue.push(job);
-          logger.warn(`Notification Worker: Re-enqueuing job for retry attempt ${job.retryCount}/3`);
-        } else {
-          logger.error(`Notification Worker: Job [Title: ${job.title}] breached max retry ceiling. Discarded.`);
-        }
-      }
+    const queue = queueSystemManager.queues['notifications'];
+    if (queue) {
+      queue.add('sendNotification', jobData).catch((err) => {
+        logger.error(`Notification Queue: Failed to enqueue BullMQ job. Error: ${err.message}`);
+      });
+      logger.info(`Notification Queue: Enqueued BullMQ job [Title: ${title}] for Recipient: ${recipientId}`);
+    } else {
+      logger.error('Notification Queue: Failed to dispatch. Queue "notifications" is not registered.');
     }
-
-    isWorkerRunning = false;
   }
 
   /**

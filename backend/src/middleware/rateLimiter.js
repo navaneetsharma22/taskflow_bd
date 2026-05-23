@@ -18,4 +18,22 @@ const globalRateLimiter = rateLimit({
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 
+/**
+ * Strict Auth Rate Limiter
+ * Applies aggressive limits to authentication endpoints to prevent
+ * credential stuffing, brute-force, and enumeration attacks.
+ * 5 requests per minute per IP.
+ */
+export const authRateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 5,
+  message: {
+    status: 429,
+    message: 'Too many authentication attempts. Please wait before trying again.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 export default globalRateLimiter;
+

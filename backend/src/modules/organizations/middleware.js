@@ -15,21 +15,21 @@ import asyncHandler from '../../utils/asyncHandler.js';
  * or falling back to the authenticated user's organization partition scope.
  */
 export const resolveTenant = asyncHandler(async (req, res, next) => {
-  let tenantCode = req.headers['x-tenant-code'];
-
-  // Fallback: If no code is explicitly sent in headers, attempt to resolve from user authentication scope
-  if (!tenantCode && req.user && req.organizationId) {
+  // SECURITY: If user is authenticated via JWT, ALWAYS resolve tenant from their token-derived org.
+  // Header-based tenant codes must NEVER override authenticated user boundaries.
+  if (req.user && req.organizationId) {
     const org = await organizationService.getOrganizationById(req.organizationId);
     req.tenant = org;
     return next();
   }
 
+  // Only allow header-based resolution for unauthenticated public endpoints
+  const tenantCode = req.headers['x-tenant-code'];
   if (!tenantCode) {
-    // If not authenticated and no header provided, allow routing to next (e.g. public endpoints)
     return next();
   }
 
-  // Resolve using provided header code
+  // Resolve using provided header code (public context only)
   const org = await organizationService.validateOrganizationCode(tenantCode);
   
   // Establish Tenant Scope Context

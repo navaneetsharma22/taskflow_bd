@@ -19,7 +19,7 @@ class AuthService {
   /**
    * Registers a new tenant user inside an active Organization workspace.
    */
-  async register({ name, email, password, organizationCode, role }) {
+  async register({ name, email, password, organizationCode }) {
     // 1. Resolve Organization Workspace
     const org = await organizationService.validateOrganizationCode(organizationCode);
 
@@ -29,13 +29,12 @@ class AuthService {
       throw new AppError('Email address is already registered on this platform.', 409);
     }
 
-    // 3. Create Partitioned User
+    // 3. Create Partitioned User (SECURITY: role is always DEVELOPER — admin assignment via RBAC)
     const newUser = await authRepository.createUser({
       name,
       email,
       password,
       organizationId: org._id,
-      role,
     });
 
     logger.info(`Auth: New user successfully registered [ID: ${newUser._id}] under Organization: ${org.name}`);
@@ -188,10 +187,10 @@ class AuthService {
 
     logger.info(`Auth: Generated password recovery token for: ${email}`);
 
-    // In a real application, emailService dispatches this. We return it for modular inspection.
+    // SECURITY: Token is dispatched via email service only — NEVER returned in API response.
+    // TODO: Integrate emailService.sendPasswordResetEmail(email, resetToken);
     return {
-      resetToken,
-      message: 'Recovery token generated. Dispatch to mail client.',
+      message: 'If the email is registered, a recovery link has been sent.',
     };
   }
 

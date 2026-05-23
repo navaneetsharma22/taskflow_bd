@@ -1,4 +1,5 @@
 import Redis from 'ioredis';
+import config from '../config/index.js';
 import logger from './logger.js';
 
 /**
@@ -10,7 +11,7 @@ import logger from './logger.js';
  */
 class CacheManager {
   constructor() {
-    this.redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
+    this.redisUrl = config.redis.url;
     this.redisClient = null;
     this.isMockActive = false;
     
@@ -18,6 +19,27 @@ class CacheManager {
     this.mockStore = new Map();
 
     this.initialize();
+
+    // Periodic cleanup of expired mock cache entries to prevent memory leaks
+    this._cleanupInterval = setInterval(() => this._cleanExpiredEntries(), 60000);
+  }
+
+  /**
+   * Removes expired entries from the in-memory mock store
+   */
+  _cleanExpiredEntries() {
+    if (!this.isMockActive || this.mockStore.size === 0) return;
+    const now = Date.now();
+    let purged = 0;
+    for (const [key, item] of this.mockStore) {
+      if (item.expiry && now > item.expiry) {
+        this.mockStore.delete(key);
+        purged++;
+      }
+    }
+    if (purged > 0) {
+      logger.debug(`[TaskFlow Cache]: Cleaned ${purged} expired mock cache entries.`);
+    }
   }
 
   /**
@@ -169,6 +191,21 @@ class CacheManager {
     } catch (err) {
       logger.error(`[TaskFlow Cache]: FlushAll execution failed. Error: ${err.message}`);
       return false;
+    }
+  }
+
+  /**
+   * Gracefully shuts down the cache manager client
+   */
+  async close() {
+    clearInterval(this._cleanupInterval);
+    if (this.redisClient) {
+      try {
+        await this.redisClient.quit();
+        logger.info('[TaskFlow Cache]: Redis client connection closed gracefully.');
+      } catch (err) {
+        logger.error(`[TaskFlow Cache]: Error closing Redis connection: ${err.message}`);
+      }
     }
   }
 }

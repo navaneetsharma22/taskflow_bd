@@ -8,8 +8,7 @@ services:
     image: redis:7-alpine
     container_name: taskflow-redis-production
     restart: always
-    ports:
-      - "6379:6379"
+    # No host port exposure — only accessible via internal Docker network
     volumes:
       - redis_data:/data
     networks:
@@ -21,20 +20,23 @@ services:
       retries: 5
 
   # ----------------------------------------------------
-  # MongoDB Database Service
+  # MongoDB Database Service (Authenticated)
   # ----------------------------------------------------
   mongodb:
     image: mongo:6.0
     container_name: taskflow-mongodb-production
     restart: always
-    ports:
-      - "27017:27017"
+    # No host port exposure — only accessible via internal Docker network
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER:-taskflow_admin}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD}
+      - MONGO_INITDB_DATABASE=taskflow
     volumes:
       - mongodb_data:/data/db
     networks:
       - taskflow-production-network
     healthcheck:
-      test: ["CMD-SHELL", "mongosh --eval 'db.runCommand({ping:1})' --quiet"]
+      test: ["CMD-SHELL", "mongosh -u $$MONGO_INITDB_ROOT_USERNAME -p $$MONGO_INITDB_ROOT_PASSWORD --eval 'db.runCommand({ping:1})' --quiet"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -50,13 +52,13 @@ services:
     restart: always
     ports:
       - "5000:5000"
+    env_file:
+      - .env.production  # Must be gitignored — contains all secrets
     environment:
       - NODE_ENV=production
       - PORT=5000
-      - MONGO_URI=mongodb://mongodb:27017/taskflow
+      - MONGO_URI=mongodb://${MONGO_USER:-taskflow_admin}:${MONGO_PASSWORD}@mongodb:27017/taskflow?authSource=admin
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=ProductionSuperSecretJWTKey102938!
-      - JWT_REFRESH_SECRET=ProductionSuperSecretJWTRefreshKey987654!
     depends_on:
       mongodb:
         condition: service_healthy

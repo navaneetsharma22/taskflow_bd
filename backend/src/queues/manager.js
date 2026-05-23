@@ -1,4 +1,4 @@
-import { Queue, Worker, QueueEvents } from 'bullmq';
+import { Queue, Worker } from 'bullmq';
 import Redis from 'ioredis';
 import logger from '../utils/logger.js';
 import config from '../config/index.js';
@@ -12,12 +12,13 @@ import config from '../config/index.js';
  */
 class QueueSystemManager {
   constructor() {
-    this.redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
+    this.redisUrl = config.redis.url;
     this.redisConnection = null;
     this.isMockActive = false;
     this.queues = {};
     this.workers = {};
     this.failedJobsRegistry = []; // Live administrative tracking list for failed jobs
+    this.maxFailedJobsSize = 1000; // Cap registry to prevent unbounded memory growth
 
     this.initializeConnection();
   }
@@ -92,6 +93,20 @@ class QueueSystemManager {
       });
 
       // 3. Setup Failed Job Tracking Event Listeners
+      queue.on('error', (err) => {
+        if (!this.isMockActive) {
+          logger.warn(`[TaskFlow Queues]: Queue [${queueName}] connection warning: ${err.message}. Mock fallback active.`);
+          this.isMockActive = true;
+        }
+      });
+
+      worker.on('error', (err) => {
+        if (!this.isMockActive) {
+          logger.warn(`[TaskFlow Queues]: Worker [${queueName}] connection warning: ${err.message}. Mock fallback active.`);
+          this.isMockActive = true;
+        }
+      });
+
       worker.on('failed', (job, err) => {
         const failureLog = {
           jobId: job ? job.id : 'unknown',
@@ -104,6 +119,10 @@ class QueueSystemManager {
         };
 
         this.failedJobsRegistry.push(failureLog);
+        // Cap the registry to prevent unbounded memory growth
+        if (this.failedJobsRegistry.length > this.maxFailedJobsSize) {
+          this.failedJobsRegistry = this.failedJobsRegistry.slice(-this.maxFailedJobsSize);
+        }
         logger.error(`🚨 [Queue Worker Alert]: Job [${failureLog.jobId}] failed inside Queue [${queueName}]! Reason: ${err.message}`);
       });
 
@@ -160,6 +179,10 @@ class QueueSystemManager {
             stack: err.stack,
           };
           this.failedJobsRegistry.push(failureLog);
+        // Cap the registry to prevent unbounded memory growth
+        if (this.failedJobsRegistry.length > this.maxFailedJobsSize) {
+          this.failedJobsRegistry = this.failedJobsRegistry.slice(-this.maxFailedJobsSize);
+        }
           logger.error(`🚨 [Mock Worker Alert]: Job [${jobId}] completely failed after ${maxAttempts} attempts inside Queue [${queueName}]!`);
         }
       }
@@ -181,6 +204,48 @@ class QueueSystemManager {
    */
   clearFailedJobsRegistry() {
     this.failedJobsRegistry = [];
+  }
+
+  /**
+   * Gracefully shuts down workers, queues, and connections
+   */
+  async close() {
+    logger.info('[TaskFlow Queues]: Initiating graceful shutdown of queues and workers...');
+    
+    // Close all workers
+    const workerPromises = Object.entries(this.workers).map(async ([name, worker]) => {
+      try {
+        await worker.close();
+        logger.info(`[TaskFlow Queues]: Worker for queue [${name}] closed successfully.`);
+      } catch (err) {
+        logger.error(`[TaskFlow Queues]: Error closing worker for queue [${name}]: ${err.message}`);
+      }
+    });
+    await Promise.all(workerPromises);
+
+    // Close all queues
+    const queuePromises = Object.entries(this.queues).map(async ([name, queue]) => {
+      // Mock queues don't have .close method
+      if (queue && typeof queue.close === 'function') {
+        try {
+          await queue.close();
+          logger.info(`[TaskFlow Queues]: Queue [${name}] closed successfully.`);
+        } catch (err) {
+          logger.error(`[TaskFlow Queues]: Error closing queue [${name}]: ${err.message}`);
+        }
+      }
+    });
+    await Promise.all(queuePromises);
+
+    // Close primary redis connection
+    if (this.redisConnection) {
+      try {
+        await this.redisConnection.quit();
+        logger.info('[TaskFlow Queues]: Redis queue connection closed gracefully.');
+      } catch (err) {
+        logger.error(`[TaskFlow Queues]: Error closing Redis connection: ${err.message}`);
+      }
+    }
   }
 }
 

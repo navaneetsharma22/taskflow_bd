@@ -11,6 +11,9 @@ import notFoundHandler from './middleware/notFound.js';
 import globalErrorHandler from './middleware/errorMiddleware.js';
 import AppError from './utils/AppError.js';
 
+// Import Domain Module Routers
+import authRouter from './modules/auth/routes.js';
+
 /**
  * SRC DIRECTORY - EXPRESS APPLICATION INITIALIZER (app.js)
  * Responsibility: Wires all core application structures: sets global middlewares
@@ -59,8 +62,11 @@ app.use(requestLogger);
 app.use('/api', globalRateLimiter);
 
 // ==========================================
-// 2. Fundamental & System Routes
+// 2. Domain & Application Routes
 // ==========================================
+
+// Mount Authentication & Tenant Workspace workflows
+app.use('/api/auth', authRouter);
 
 /**
  * @route   GET /health

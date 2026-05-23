@@ -7,6 +7,7 @@ import mongoose from 'mongoose';
 import config from './config/index.js';
 import requestLogger from './middleware/requestLogger.js';
 import globalRateLimiter from './middleware/rateLimiter.js';
+import notFoundHandler from './middleware/notFound.js';
 import globalErrorHandler from './middleware/errorMiddleware.js';
 import AppError from './utils/AppError.js';
 
@@ -99,9 +100,7 @@ app.get('/health', (req, res) => {
 // ==========================================
 
 // Handle requested paths that do not exist (404 Fallback)
-app.all('*', (req, res, next) => {
-  next(new AppError(`Requested path [${req.method}] ${req.originalUrl} not found.`, 404));
-});
+app.all('*', notFoundHandler);
 
 // Register global Express error handling middleware
 app.use(globalErrorHandler);

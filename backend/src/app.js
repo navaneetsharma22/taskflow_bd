@@ -3,6 +3,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import compression from 'compression';
 import mongoose from 'mongoose';
+import path from 'path';
 
 import config from './config/index.js';
 import requestLogger from './middleware/requestLogger.js';
@@ -23,6 +24,8 @@ import analyticsRouter from './modules/analytics/routes.js';
 import notificationsRouter from './modules/notifications/routes.js';
 import messagesRouter from './modules/messages/routes.js';
 import auditRouter from './modules/audit/routes.js';
+import uploadsRouter from './modules/uploads/routes.js';
+import reportsRouter from './modules/reports/routes.js';
 
 /**
  * SRC DIRECTORY - EXPRESS APPLICATION INITIALIZER (app.js)
@@ -107,6 +110,15 @@ app.use('/api/messages', messagesRouter);
 
 // Mount Security Audit logging compliance monitoring workspaces
 app.use('/api/audit', auditRouter);
+
+// Mount Multipart File Upload and image optimization gateway routers
+app.use('/api/uploads', uploadsRouter);
+
+// Mount PDF/CSV Executive and Project Reports generation workflows
+app.use('/api/reports', reportsRouter);
+
+// Expose public uploads folder for local simulated object storage access
+app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
 
 /**
  * @route   GET /health

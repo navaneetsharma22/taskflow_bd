@@ -2,35 +2,47 @@ import Organization from './model.js';
 
 /**
  * ORGANIZATIONS MODULE - DATA REPOSITORY (repository.js)
- * Responsibility: Handles direct database operations for Organizations.
- * Encapsulates Mongoose-specific query logic to separate persistence from business rules.
+ * Responsibility: Handles direct database operations for Organizations (Tenants).
+ * Isolates Mongoose-specific query structures.
  */
 class OrganizationRepository {
-  /**
-   * Find organization by its unique access code
-   * @param {string} code 
-   */
   async findByCode(code) {
     return Organization.findOne({ code: code.toUpperCase() }).lean();
   }
 
-  /**
-   * Find organization by ID
-   * @param {string} id 
-   */
   async findById(id) {
     return Organization.findById(id).lean();
   }
 
-  /**
-   * Create new organization document
-   * @param {Object} orgData 
-   */
   async create(orgData) {
     return Organization.create({
       ...orgData,
       code: orgData.code.toUpperCase()
     });
+  }
+
+  async updateSettings(id, settings) {
+    return Organization.findByIdAndUpdate(
+      id,
+      { $set: { settings } },
+      { new: true, runValidators: true }
+    ).lean();
+  }
+
+  async updateFeatureFlags(id, featureFlags) {
+    return Organization.findByIdAndUpdate(
+      id,
+      { $set: { featureFlags } },
+      { new: true }
+    ).lean();
+  }
+
+  async updateStatus(id, status) {
+    return Organization.findByIdAndUpdate(
+      id,
+      { $set: { status } },
+      { new: true }
+    ).lean();
   }
 }
 

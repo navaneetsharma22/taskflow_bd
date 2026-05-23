@@ -6,6 +6,7 @@ import { ROLES } from '../../constants/index.js';
  * AUTH MODULE - DATABASE MODELS (model.js)
  * Responsibility: Defines Mongoose schemas, properties, indexes, and methods 
  * for Users and UserSessions (device and session security tracking).
+ * Extended to support full enterprise User profiles (Skills, Departments, Employee IDs).
  */
 
 // ==========================================
@@ -51,6 +52,31 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ['ACTIVE', 'SUSPENDED'],
       default: 'ACTIVE',
+      index: true,
+    },
+    // Profile Customizations
+    profilePhoto: {
+      type: String,
+      default: '', // URL or base64 representation
+    },
+    skills: {
+      type: [String],
+      default: [],
+    },
+    department: {
+      type: String,
+      trim: true,
+      default: 'General',
+    },
+    designation: {
+      type: String,
+      trim: true,
+      default: 'Team Member',
+    },
+    employeeId: {
+      type: String,
+      trim: true,
+      index: true, // Scoped lookup within tenant
     },
     passwordResetToken: {
       type: String,
@@ -65,6 +91,9 @@ const userSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// Compound Index: Employee ID must be unique within a single Organization tenant workspace
+userSchema.index({ employeeId: 1, organizationId: 1 }, { unique: true, sparse: true });
 
 // Mongoose Pre-Save Hook: Automatically hash password on create/update
 userSchema.pre('save', async function (next) {
@@ -82,7 +111,6 @@ userSchema.pre('save', async function (next) {
 
 // Mongoose Instance Method: Verify candidates password match
 userSchema.methods.comparePassword = async function (candidatePassword) {
-  // Since password field is select: false, make sure to pass the hashed password into the check
   return bcrypt.compare(candidatePassword, this.password);
 };
 
@@ -120,7 +148,7 @@ const userSessionSchema = new mongoose.Schema(
     isValid: {
       type: Boolean,
       default: true,
-      index: true, // Quick check on token refreshing
+      index: true,
     },
     lastActiveAt: {
       type: Date,
@@ -129,7 +157,7 @@ const userSessionSchema = new mongoose.Schema(
     expiresAt: {
       type: Date,
       required: true,
-      index: true, // Can be used for cleanup TTL scripts
+      index: true,
     },
   },
   {

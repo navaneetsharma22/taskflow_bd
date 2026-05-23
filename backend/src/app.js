@@ -13,6 +13,9 @@ import AppError from './utils/AppError.js';
 
 // Import Domain Module Routers
 import authRouter from './modules/auth/routes.js';
+import organizationsRouter from './modules/organizations/routes.js';
+import usersRouter from './modules/users/routes.js';
+import rolesRouter from './modules/rbac/routes.js';
 
 /**
  * SRC DIRECTORY - EXPRESS APPLICATION INITIALIZER (app.js)
@@ -67,6 +70,15 @@ app.use('/api', globalRateLimiter);
 
 // Mount Authentication & Tenant Workspace workflows
 app.use('/api/auth', authRouter);
+
+// Mount Tenant Settings & Customizations workflows
+app.use('/api/organizations', organizationsRouter);
+
+// Mount User Profiles & Employee Directory workflows
+app.use('/api/users', usersRouter);
+
+// Mount Dynamic Roles, Custom Permissions & Assignment workflows
+app.use('/api/roles', rolesRouter);
 
 /**
  * @route   GET /health

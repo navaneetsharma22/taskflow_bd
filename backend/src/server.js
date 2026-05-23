@@ -1,14 +1,14 @@
 import app from './app.js';
 import config from './config/index.js';
 import { connectDatabase, disconnectDatabase } from './database/index.js';
+import rbacService from './modules/rbac/service.js';
 import logger from './utils/logger.js';
 
 /**
  * SRC DIRECTORY - SERVER STARTUP & ENTRY POINT (server.js)
  * Responsibility: Starts the HTTP server, handles DB initializations, 
  * registers system lifecycle processes (uncaught exceptions, unhandled rejections),
- * and implements seamless graceful shutdowns to prevent active requests/connections
- * from getting severed abruptly.
+ * seeds default dynamic RBAC rules, and implements seamless graceful shutdowns.
  */
 
 // ==========================================
@@ -29,6 +29,9 @@ const startServer = async () => {
   try {
     // Establish persistence channel before listening for traffic
     await connectDatabase();
+
+    // Auto seed default system privileges and roles mappings
+    await rbacService.seedDefaultRbacData();
 
     const PORT = config.port;
 

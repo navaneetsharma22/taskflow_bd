@@ -2,8 +2,8 @@ import mongoose from 'mongoose';
 
 /**
  * ORGANIZATIONS MODULE - DATABASE SCHEMA (model.js)
- * Responsibility: Declares structure, constraints, and indexes for Organization documents.
- * Crucial for multi-tenant data isolation, matching users and projects to their specific tenant block.
+ * Responsibility: Declares structure, settings, feature flags, limits, and statuses 
+ * for Organizations (tenants). Central to maintaining strict multi-tenant data isolation.
  */
 
 const organizationSchema = new mongoose.Schema(
@@ -25,18 +25,55 @@ const organizationSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: {
-        values: ['ACTIVE', 'SUSPENDED'],
-        message: 'Status must be ACTIVE or SUSPENDED.',
+        values: ['ACTIVE', 'SUSPENDED', 'TRIAL_EXPIRED'],
+        message: 'Status must be ACTIVE, SUSPENDED, or TRIAL_EXPIRED.',
       },
       default: 'ACTIVE',
     },
     subscriptionPlan: {
       type: String,
-      enum: {
-        values: ['FREE_TRIAL', 'GROWTH', 'ENTERPRISE'],
-        message: 'Invalid subscription tier.',
-      },
+      enum: ['FREE_TRIAL', 'GROWTH', 'ENTERPRISE'],
       default: 'FREE_TRIAL',
+    },
+    settings: {
+      allow2FA: {
+        type: Boolean,
+        default: false,
+      },
+      ipWhitelist: {
+        type: [String],
+        default: [], // Empty means no whitelist restriction is applied
+      },
+      sessionLimit: {
+        type: Number,
+        default: 5, // Max concurrent sessions per user
+      },
+      storageLimitGb: {
+        type: Number,
+        default: 5, // Default Free Trial storage limit
+      },
+      userLimit: {
+        type: Number,
+        default: 10, // Default Free Trial user headcount limit
+      },
+    },
+    featureFlags: {
+      hasAIEnabled: {
+        type: Boolean,
+        default: false,
+      },
+      hasChatEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      hasTimelineEnabled: {
+        type: Boolean,
+        default: true,
+      },
+      hasKPIEnabled: {
+        type: Boolean,
+        default: false,
+      },
     },
   },
   {

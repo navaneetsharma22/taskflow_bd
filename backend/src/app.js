@@ -26,6 +26,7 @@ import messagesRouter from './modules/messages/routes.js';
 import auditRouter from './modules/audit/routes.js';
 import uploadsRouter from './modules/uploads/routes.js';
 import reportsRouter from './modules/reports/routes.js';
+import aiRouter from './modules/ai/routes.js';
 
 /**
  * SRC DIRECTORY - EXPRESS APPLICATION INITIALIZER (app.js)
@@ -116,6 +117,9 @@ app.use('/api/uploads', uploadsRouter);
 
 // Mount PDF/CSV Executive and Project Reports generation workflows
 app.use('/api/reports', reportsRouter);
+
+// Mount Generative AI sprints reviews, deadline risks, workload predictions, and reports text insights
+app.use('/api/ai', aiRouter);
 
 // Expose public uploads folder for local simulated object storage access
 app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));

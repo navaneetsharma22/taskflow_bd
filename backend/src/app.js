@@ -16,6 +16,7 @@ import authRouter from './modules/auth/routes.js';
 import organizationsRouter from './modules/organizations/routes.js';
 import usersRouter from './modules/users/routes.js';
 import rolesRouter from './modules/rbac/routes.js';
+import projectsRouter from './modules/projects/routes.js';
 
 /**
  * SRC DIRECTORY - EXPRESS APPLICATION INITIALIZER (app.js)
@@ -79,6 +80,9 @@ app.use('/api/users', usersRouter);
 
 // Mount Dynamic Roles, Custom Permissions & Assignment workflows
 app.use('/api/roles', rolesRouter);
+
+// Mount Projects Workspaces & Health Scoring workflows
+app.use('/api/projects', projectsRouter);
 
 /**
  * @route   GET /health

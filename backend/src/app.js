@@ -20,6 +20,7 @@ import projectsRouter from './modules/projects/routes.js';
 import tasksRouter from './modules/tasks/routes.js';
 import milestonesRouter from './modules/milestones/routes.js';
 import analyticsRouter from './modules/analytics/routes.js';
+import notificationsRouter from './modules/notifications/routes.js';
 
 /**
  * SRC DIRECTORY - EXPRESS APPLICATION INITIALIZER (app.js)
@@ -95,6 +96,9 @@ app.use('/api/milestones', milestonesRouter);
 
 // Mount Analytics business intelligence aggregations and productivity velocity trends
 app.use('/api/analytics', analyticsRouter);
+
+// Mount Notifications dispatcher, background queues, and read states tracking
+app.use('/api/notifications', notificationsRouter);
 
 /**
  * @route   GET /health

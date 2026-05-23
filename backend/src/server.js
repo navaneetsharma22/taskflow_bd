@@ -3,6 +3,7 @@ import config from './config/index.js';
 import { connectDatabase, disconnectDatabase } from './database/index.js';
 import rbacService from './modules/rbac/service.js';
 import logger from './utils/logger.js';
+import { initSocket } from './socket/index.js';
 
 /**
  * SRC DIRECTORY - SERVER STARTUP & ENTRY POINT (server.js)
@@ -38,6 +39,9 @@ const startServer = async () => {
     server = app.listen(PORT, () => {
       logger.info(`⚡ [TaskFlow Server]: Running on port ${PORT} in [${config.env}] environment`);
     });
+
+    // Initialize WebSockets infrastructure attached to HTTP server instance
+    initSocket(server);
 
   } catch (err) {
     logger.error(`CRITICAL: Server initialization failed: ${err.message}`);

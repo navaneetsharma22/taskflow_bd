@@ -18,6 +18,8 @@ import usersRouter from './modules/users/routes.js';
 import rolesRouter from './modules/rbac/routes.js';
 import projectsRouter from './modules/projects/routes.js';
 import tasksRouter from './modules/tasks/routes.js';
+import milestonesRouter from './modules/milestones/routes.js';
+import analyticsRouter from './modules/analytics/routes.js';
 
 /**
  * SRC DIRECTORY - EXPRESS APPLICATION INITIALIZER (app.js)
@@ -87,6 +89,12 @@ app.use('/api/projects', projectsRouter);
 
 // Mount Tasks, subtasks, comments, and attachments workflows
 app.use('/api/tasks', tasksRouter);
+
+// Mount Milestones, target tracking, progress maps, and warning alerts workflows
+app.use('/api/milestones', milestonesRouter);
+
+// Mount Analytics business intelligence aggregations and productivity velocity trends
+app.use('/api/analytics', analyticsRouter);
 
 /**
  * @route   GET /health

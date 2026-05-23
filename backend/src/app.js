@@ -27,6 +27,7 @@ import auditRouter from './modules/audit/routes.js';
 import uploadsRouter from './modules/uploads/routes.js';
 import reportsRouter from './modules/reports/routes.js';
 import aiRouter from './modules/ai/routes.js';
+import queuesRouter from './modules/queues/routes.js';
 
 /**
  * SRC DIRECTORY - EXPRESS APPLICATION INITIALIZER (app.js)
@@ -120,6 +121,9 @@ app.use('/api/reports', reportsRouter);
 
 // Mount Generative AI sprints reviews, deadline risks, workload predictions, and reports text insights
 app.use('/api/ai', aiRouter);
+
+// Mount Redis-backed queues and failed jobs administrative consoles
+app.use('/api/queues', queuesRouter);
 
 // Expose public uploads folder for local simulated object storage access
 app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));

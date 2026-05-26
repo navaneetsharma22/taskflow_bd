@@ -162,6 +162,7 @@ class OrganizationService {
 
     return updatedOrg;
   }
+
 }
 
 export default new OrganizationService();

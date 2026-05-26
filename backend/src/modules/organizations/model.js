@@ -75,6 +75,19 @@ const organizationSchema = new mongoose.Schema(
         default: false,
       },
     },
+    // Soft-delete metadata
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedAt: {
+      type: Date,
+    },
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
   },
   {
     timestamps: true,

@@ -28,6 +28,7 @@ import reportsRouter from './modules/reports/routes.js';
 import aiRouter from './modules/ai/routes.js';
 import queuesRouter from './modules/queues/routes.js';
 import healthRouter from './modules/health/routes.js';
+import superadminRouter from './modules/superadmin/routes.js';
 
 /**
  * SRC DIRECTORY - EXPRESS APPLICATION INITIALIZER (app.js)
@@ -82,6 +83,9 @@ app.use('/api', globalRateLimiter);
 
 // Mount Authentication & Tenant Workspace workflows
 app.use('/api/auth', authRouter);
+
+// Mount Super Admin management endpoints (must be before tenant-specific mounters)
+app.use('/api/superadmin', superadminRouter);
 
 // Mount Tenant Settings & Customizations workflows
 app.use('/api/organizations', organizationsRouter);

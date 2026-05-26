@@ -44,6 +44,24 @@ class OrganizationRepository {
       { new: true }
     ).lean();
   }
+
+  async findAll() {
+    // Exclude soft-deleted organizations by default
+    return Organization.find({ isDeleted: { $ne: true } }).lean();
+  }
+
+  async deleteById(id, deletedBy) {
+    // Soft-delete: mark flags and metadata instead of removing the document
+    return Organization.findByIdAndUpdate(
+      id,
+      { $set: { isDeleted: true, deletedAt: new Date(), deletedBy } },
+      { new: true }
+    ).lean();
+  }
+
+  async hardDeleteById(id) {
+    return Organization.findByIdAndDelete(id).lean();
+  }
 }
 
 export default new OrganizationRepository();

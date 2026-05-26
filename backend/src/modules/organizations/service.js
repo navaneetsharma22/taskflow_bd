@@ -163,6 +163,38 @@ class OrganizationService {
     return updatedOrg;
   }
 
+  /**
+   * List all organizations (for super-admin dashboards)
+   */
+  async listOrganizations() {
+    const orgs = await organizationRepository.findAll();
+    return orgs;
+  }
+
+  /**
+   * Delete an organization by id (super-admin only)
+   */
+  async deleteOrganization(id, deletedBy) {
+    const org = await this.getOrganizationById(id);
+    // Perform soft-delete by marking flags and metadata
+    const deleted = await organizationRepository.deleteById(id, deletedBy);
+    if (!deleted) {
+      throw new AppError('Failed to delete organization.', 500);
+    }
+    return { before: org, after: deleted };
+  }
+
+  /**
+   * Permanently remove organization document and return deleted snapshot
+   */
+  async permanentlyDeleteOrganization(id) {
+    const org = await this.getOrganizationById(id);
+    const deleted = await organizationRepository.hardDeleteById(id);
+    if (!deleted) {
+      throw new AppError('Permanent deletion failed.', 500);
+    }
+    return org;
+  }
 }
 
 export default new OrganizationService();

@@ -9,7 +9,9 @@ const router = express.Router();
 router.use(protect);
 router.use(restrictTo(ROLES.SUPER_ADMIN));
 
-// Super admin can only create organizations from this module
-router.post('/organizations', superadminController.createOrganization);
+// List organizations and delete organization
+router.get('/organizations', superadminController.listOrganizations);
+router.delete('/organizations/:id', superadminController.deleteOrganization);
+router.delete('/organizations/:id/permanent', superadminController.permanentDeleteOrganization);
 
 export default router;

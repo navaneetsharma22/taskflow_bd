@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import authRepository from './repository.js';
 import organizationService from '../organizations/service.js';
+import { ROLES } from '../../constants/index.js';
 import config from '../../config/index.js';
 import AppError from '../../utils/AppError.js';
 import logger from '../../utils/logger.js';
@@ -52,19 +53,30 @@ class AuthService {
   /**
    * Performs multitenant logins, validating organization membership and registering user session.
    */
-  async login({ email, password, organizationCode, device, ipAddress }) {
-    // 1. Verify and resolve Organization tenant space
-    const org = await organizationService.validateOrganizationCode(organizationCode);
 
-    // 2. Fetch User along with selected password
+  async login({ email, password, organizationCode, device, ipAddress }) {
+    // 1. Fetch User along with selected password
     const user = await authRepository.findUserByEmail(email, true);
     if (!user) {
       throw new AppError('Invalid credentials or unauthorized workspace partition.', 401);
     }
 
-    // 3. Multitenant Check: Ensure the user belongs to the matching Organization code workspace
-    if (user.organizationId.toString() !== org._id.toString()) {
-      throw new AppError('Invalid credentials or unauthorized workspace partition.', 401);
+    // 2. Resolve Organization tenant space when provided.
+    //    For SUPER_ADMIN users allow login even if `organizationCode` is not supplied
+    let org = null;
+    if (organizationCode) {
+      org = await organizationService.validateOrganizationCode(organizationCode);
+      // Multitenant Check: Ensure the user belongs to the matching Organization code workspace
+      if (user.organizationId.toString() !== org._id.toString()) {
+        throw new AppError('Invalid credentials or unauthorized workspace partition.', 401);
+      }
+    } else {
+      // If organizationCode is missing, allow only SUPER_ADMIN users to proceed
+      if (user.role !== ROLES.SUPER_ADMIN) {
+        throw new AppError('Organization code is required to login.', 400);
+      }
+      // derive org from user's organizationId for session registration
+      org = await organizationService.getOrganizationById(user.organizationId);
     }
 
     // 4. Verify Active Status

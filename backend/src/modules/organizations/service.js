@@ -38,7 +38,7 @@ class OrganizationService {
   /**
    * Instantiates a new Tenant (Organization) with limits tied to the subscription level.
    */
-  async createOrganization({ name, subscriptionPlan = SUBSCRIPTION_PLANS.FREE_TRIAL }) {
+  async createOrganization({ name, subscriptionPlan = SUBSCRIPTION_PLANS.FREE_TRIAL, industry = '', companySize = '', website = '', email = '', phone = '', address = '', description = '' }) {
     if (!name) {
       throw new AppError('Organization name is required.', 400);
     }
@@ -69,6 +69,13 @@ class OrganizationService {
       name,
       code,
       subscriptionPlan,
+      industry,
+      companySize,
+      website,
+      email,
+      phone,
+      address,
+      description,
       settings,
       featureFlags,
       status: 'ACTIVE',

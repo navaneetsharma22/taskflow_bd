@@ -35,6 +35,43 @@ const organizationSchema = new mongoose.Schema(
       enum: ['FREE_TRIAL', 'GROWTH', 'ENTERPRISE'],
       default: 'FREE_TRIAL',
     },
+    // Company Profile Information Details
+    industry: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    companySize: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    website: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      default: '',
+    },
+    phone: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    address: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    description: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     settings: {
       allow2FA: {
         type: Boolean,

@@ -17,8 +17,8 @@ export const listOrganizations = asyncHandler(async (req, res) => {
  * POST /api/superadmin/organizations
  */
 export const createOrganization = asyncHandler(async (req, res) => {
-  const { name, subscriptionPlan } = req.body;
-  const org = await organizationService.createOrganization({ name, subscriptionPlan });
+  const { name, subscriptionPlan, industry, companySize, website, email, phone, address, description } = req.body;
+  const org = await organizationService.createOrganization({ name, subscriptionPlan, industry, companySize, website, email, phone, address, description });
 
   // Fire audit log (non-blocking)
   auditLogService.logAction({
@@ -34,6 +34,68 @@ export const createOrganization = asyncHandler(async (req, res) => {
   });
 
   return successResponse(res, 'Organization created successfully.', org, 201);
+});
+
+/**
+ * Provision a new Org Admin for an existing organization (Super Admin)
+ * POST /api/superadmin/organizations/:id/admin
+ */
+export const provisionOrgAdmin = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { adminName, adminEmail, adminPassword, adminEmployeeId } = req.body;
+
+  if (!adminEmail || !adminPassword || !adminEmployeeId) {
+    return res.status(400).json({
+      success: false,
+      message: 'Admin email, password, and employee ID are required.'
+    });
+  }
+
+  // Verify organization exists
+  const org = await organizationService.getOrganizationById(id);
+
+  // Check if admin email already exists globally
+  const { User } = await import('../auth/model.js');
+  const existingUser = await User.findOne({ email: adminEmail.toLowerCase() });
+  if (existingUser) {
+    return res.status(409).json({
+      success: false,
+      message: 'Admin email address is already registered on this platform.'
+    });
+  }
+
+  // Create the Org Admin user inside the organization
+  const adminUser = await User.create({
+    name: adminName || 'Org Admin',
+    email: adminEmail,
+    password: adminPassword,
+    role: 'ORG_ADMIN',
+    organizationId: org._id,
+    employeeId: adminEmployeeId,
+    status: 'ACTIVE',
+  });
+
+  // Fire audit log (non-blocking)
+  auditLogService.logAction({
+    userId: req.user.id,
+    organizationId: org._id,
+    action: 'PROVISION_ORGANIZATION_ADMIN',
+    entityType: 'USER',
+    entityId: adminUser._id,
+    oldValue: null,
+    newValue: { id: adminUser._id, email: adminUser.email, employeeId: adminUser.employeeId },
+    ipAddress: req.ip || req.headers['x-forwarded-for'] || '127.0.0.1',
+    userAgent: req.get('User-Agent') || 'unknown',
+  });
+
+  return successResponse(res, 'Organization Admin provisioned successfully.', {
+    id: adminUser._id,
+    name: adminUser.name,
+    email: adminUser.email,
+    role: adminUser.role,
+    organizationId: adminUser.organizationId,
+    employeeId: adminUser.employeeId,
+  }, 201);
 });
 
 /**

@@ -9,8 +9,10 @@ const router = express.Router();
 router.use(protect);
 router.use(restrictTo(ROLES.SUPER_ADMIN));
 
-// List organizations and delete organization
+// List organizations, create, update status, and delete organization
 router.get('/organizations', superadminController.listOrganizations);
+router.post('/organizations', superadminController.createOrganization);
+router.patch('/organizations/:id/status', superadminController.updateOrganizationStatus);
 router.delete('/organizations/:id', superadminController.deleteOrganization);
 router.delete('/organizations/:id/permanent', superadminController.permanentDeleteOrganization);
 

@@ -13,6 +13,56 @@ export const listOrganizations = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Create a new organization (Super Admin)
+ * POST /api/superadmin/organizations
+ */
+export const createOrganization = asyncHandler(async (req, res) => {
+  const { name, subscriptionPlan } = req.body;
+  const org = await organizationService.createOrganization({ name, subscriptionPlan });
+
+  // Fire audit log (non-blocking)
+  auditLogService.logAction({
+    userId: req.user.id,
+    organizationId: org._id,
+    action: 'CREATE_ORGANIZATION',
+    entityType: 'ORGANIZATION',
+    entityId: org._id,
+    oldValue: null,
+    newValue: org,
+    ipAddress: req.ip || req.headers['x-forwarded-for'] || '127.0.0.1',
+    userAgent: req.get('User-Agent') || 'unknown',
+  });
+
+  return successResponse(res, 'Organization created successfully.', org, 201);
+});
+
+/**
+ * Update organization status (Super Admin)
+ * PATCH /api/superadmin/organizations/:id/status
+ */
+export const updateOrganizationStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  const before = await organizationService.getOrganizationById(id);
+  const updatedOrg = await organizationService.updateStatus(id, status);
+
+  // Fire audit log (non-blocking)
+  auditLogService.logAction({
+    userId: req.user.id,
+    organizationId: id,
+    action: 'UPDATE_ORGANIZATION_STATUS',
+    entityType: 'ORGANIZATION',
+    entityId: id,
+    oldValue: { status: before.status },
+    newValue: { status: updatedOrg.status },
+    ipAddress: req.ip || req.headers['x-forwarded-for'] || '127.0.0.1',
+    userAgent: req.get('User-Agent') || 'unknown',
+  });
+
+  return successResponse(res, `Organization status updated to ${status}.`, updatedOrg);
+});
+
+/**
  * Delete an organization by id (Super Admin)
  * DELETE /api/superadmin/organizations/:id
  */

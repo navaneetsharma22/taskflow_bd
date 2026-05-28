@@ -45,14 +45,17 @@ export const validateRegister = {
 export const validateLogin = {
   body: Joi.object({
     email: Joi.string().required().trim().email().messages({
-      'any.required': 'Email is required.',
+      'any.required': 'Email address is required to login.',
       'string.email': 'Please provide a valid email.',
+    }),
+    employeeId: Joi.string().optional().allow('').trim().messages({
+      'string.empty': 'Employee ID cannot be empty.',
     }),
     password: Joi.string().required().messages({
       'any.required': 'Password is required.',
     }),
-    organizationCode: Joi.string().required().trim().uppercase().messages({
-      'any.required': 'Organization workspace code is required.',
+    organizationCode: Joi.string().optional().allow('').trim().uppercase().messages({
+      'string.empty': 'Organization workspace code cannot be empty.',
     }),
   }),
 };

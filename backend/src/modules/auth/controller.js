@@ -43,7 +43,7 @@ export const registerUser = asyncHandler(async (req, res) => {
  * @access  Public
  */
 export const loginUser = asyncHandler(async (req, res) => {
-  const { email, password, organizationCode } = req.body;
+  const { email, password, organizationCode, employeeId } = req.body;
   const device = req.headers['user-agent'] || 'Unknown Device';
   const ipAddress = req.ip || '0.0.0.0';
 
@@ -51,6 +51,7 @@ export const loginUser = asyncHandler(async (req, res) => {
     email,
     password,
     organizationCode,
+    employeeId,
     device,
     ipAddress,
   });

@@ -54,29 +54,43 @@ class AuthService {
    * Performs multitenant logins, validating organization membership and registering user session.
    */
 
-  async login({ email, password, organizationCode, device, ipAddress }) {
-    // 1. Fetch User along with selected password
+  async login({ email, password, organizationCode, employeeId, device, ipAddress }) {
+    if (!email) {
+      throw new AppError('Email address is required to login.', 400);
+    }
+
+    // 1. Fetch User by Email globally
     const user = await authRepository.findUserByEmail(email, true);
     if (!user) {
       throw new AppError('Invalid credentials or unauthorized workspace partition.', 401);
     }
 
-    // 2. Resolve Organization tenant space when provided.
-    //    For SUPER_ADMIN users allow login even if `organizationCode` is not supplied
-    let org = null;
-    if (organizationCode) {
-      org = await organizationService.validateOrganizationCode(organizationCode);
-      // Multitenant Check: Ensure the user belongs to the matching Organization code workspace
-      if (user.organizationId.toString() !== org._id.toString()) {
-        throw new AppError('Invalid credentials or unauthorized workspace partition.', 401);
+    // 2. Resolve Organization from user's record
+    const org = await organizationService.getOrganizationById(user.organizationId);
+    if (!org) {
+      throw new AppError('Associated workspace organization not found.', 404);
+    }
+
+    // 3. Super Admin Route Restriction
+    if (user.role === ROLES.SUPER_ADMIN) {
+      if (!organizationCode || organizationCode.toUpperCase() !== org.code.toUpperCase()) {
+        throw new AppError('Super Admin accounts must sign in through the dedicated Platform Control Center.', 401);
       }
-    } else {
-      // If organizationCode is missing, allow only SUPER_ADMIN users to proceed
-      if (user.role !== ROLES.SUPER_ADMIN) {
-        throw new AppError('Organization code is required to login.', 400);
+    }
+
+    // 4. Employee ID Verification (if configured on the account)
+    if (user.employeeId) {
+      const cleanInputId = String(employeeId || '').trim();
+      if (!cleanInputId || user.employeeId.trim().toLowerCase() !== cleanInputId.toLowerCase()) {
+        throw new AppError('A valid Employee ID is required to log into this account.', 401);
       }
-      // derive org from user's organizationId for session registration
-      org = await organizationService.getOrganizationById(user.organizationId);
+    }
+
+    if (org.status === 'SUSPENDED') {
+      throw new AppError('Workspace has been suspended. Please contact platform administrators.', 403);
+    }
+    if (org.status === 'TRIAL_EXPIRED') {
+      throw new AppError('Your organization free trial has expired. Update subscription plan to reactivate.', 402);
     }
 
     // 4. Verify Active Status
